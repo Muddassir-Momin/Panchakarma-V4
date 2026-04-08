@@ -1,0 +1,17 @@
+'use strict';
+require('dotenv').config();
+const express = require('express');
+const helmet  = require('helmet');
+const cors    = require('cors');
+const logger  = require('../../../shared/utils/logger');
+const routes  = require('./routes');
+const { errorHandler } = require('./middleware/error.middleware');
+const app = express();
+app.use(helmet());
+app.use(cors({ origin: '*' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(logger.requestMiddleware);
+app.use('/api', routes);
+app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'patient-service' }));
+app.use(errorHandler);
+module.exports = app;

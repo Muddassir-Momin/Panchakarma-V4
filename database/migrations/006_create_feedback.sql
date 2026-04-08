@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS feedback (
+  id           CHAR(36)     NOT NULL DEFAULT (UUID()),
+  patient_id   CHAR(36)     NOT NULL,
+  session_id   CHAR(36)     NOT NULL,
+  doctor_id    CHAR(36)     NOT NULL,
+  rating       TINYINT      NOT NULL,
+  energy_level ENUM('much_improved','slightly_improved','same','slightly_worse') NOT NULL DEFAULT 'same',
+  symptoms     TEXT,
+  comments     TEXT,
+  submitted_at DATE         NOT NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_feedback_session_patient (session_id, patient_id),
+  CONSTRAINT fk_feedback_patient FOREIGN KEY (patient_id) REFERENCES users(id)    ON DELETE CASCADE,
+  CONSTRAINT fk_feedback_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_feedback_doctor  FOREIGN KEY (doctor_id)  REFERENCES users(id)    ON DELETE CASCADE,
+  CONSTRAINT chk_feedback_rating CHECK (rating BETWEEN 1 AND 10),
+  KEY idx_feedback_patient (patient_id),
+  KEY idx_feedback_doctor  (doctor_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

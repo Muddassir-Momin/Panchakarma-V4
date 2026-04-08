@@ -1,0 +1,43 @@
+# ── Multi-stage Dockerfile for any PKMS service ───────────
+# Build:  docker build --build-arg SERVICE_DIR=services/auth-service -t pkms-auth .
+# ──────────────────────────────────────────────────────────
+
+ARG SERVICE_DIR=services/auth-service
+
+# ── Stage 1: Install dependencies ─────────────────────────
+FROM node:20-alpine AS deps
+ARG SERVICE_DIR
+WORKDIR /app
+
+# Copy shared code
+COPY shared/ ./shared/
+
+# Copy specific service
+COPY ${SERVICE_DIR}/package*.json ./${SERVICE_DIR}/
+
+RUN cd ${SERVICE_DIR} && npm ci --only=production --ignore-scripts
+
+# ── Stage 2: Production image ──────────────────────────────
+FROM node:20-alpine AS production
+ARG SERVICE_DIR
+
+RUN apk add --no-cache dumb-init
+RUN addgroup -g 1001 -S nodejs && adduser -S pkms -u 1001 -G nodejs
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules          ./node_modules
+COPY --from=deps /app/${SERVICE_DIR}/node_modules ./${SERVICE_DIR}/node_modules
+
+COPY shared/    ./shared/
+COPY ${SERVICE_DIR}/ ./${SERVICE_DIR}/
+
+RUN mkdir -p logs uploads && chown -R pkms:nodejs logs uploads
+
+USER pkms
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:${PORT:-4001}/health || exit 1
+
+ENTRYPOINT ["dumb-init","--"]
+CMD ["node", "server.js"]

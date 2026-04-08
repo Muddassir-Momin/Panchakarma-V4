@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2D5016">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Panchakarma Management Software</title>
+
+  <!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║  CSS Load Order (MUST be in this sequence)               ║
+  ║  1. variables.css  — CSS custom properties (:root)       ║
+  ║  2. reset.css      — modern reset + @keyframes           ║
+  ║  3. mobile.css     — responsive breakpoints              ║
+  ║  (all.css includes everything if you prefer one file)    ║
+  ╚══════════════════════════════════════════════════════════╝
+  -->
+  <link rel="stylesheet" href="css/all.css">
+
+  <!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║  External Libraries (CDN)                                ║
+  ╚══════════════════════════════════════════════════════════╝
+  -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+
+  <!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║  JS Load Order — MUST follow this exact sequence         ║
+  ║                                                          ║
+  ║  CORE (data & infrastructure first)                      ║
+  ║    db.js → constants.js → helpers.js → toast.js          ║
+  ║    modal.js → charts.js → session.js → router.js         ║
+  ║    app.js  (DOMContentLoaded fires here)                 ║
+  ║                                                          ║
+  ║  COMPONENTS (can load in any order after core)           ║
+  ║    patient/* → doctor/* → admin/* → shared/*            ║
+  ╚══════════════════════════════════════════════════════════╝
+  -->
+
+  <!-- Core -->
+  <script src="js/core/db.js"           defer></script>
+  <script src="js/core/constants.js"    defer></script>
+  <script src="js/utils/helpers.js"     defer></script>
+  <script src="js/utils/toast.js"       defer></script>
+  <script src="js/utils/modal.js"       defer></script>
+  <script src="js/utils/charts.js"      defer></script>
+  <script src="js/core/session.js"      defer></script>
+  <script src="js/core/router.js"       defer></script>
+  <script src="js/core/app.js"          defer></script>
+
+  <!-- Patient -->
+  <script src="js/components/patient/dashboard.js"     defer></script>
+  <script src="js/components/patient/schedule.js"      defer></script>
+  <script src="js/components/patient/progress.js"      defer></script>
+  <script src="js/components/patient/notifications.js" defer></script>
+  <script src="js/components/patient/feedback.js"      defer></script>
+  <script src="js/components/patient/shop.js"          defer></script>
+  <script src="js/components/patient/orders.js"        defer></script>
+
+  <!-- Doctor -->
+  <script src="js/components/doctor/dashboard.js"      defer></script>
+  <script src="js/components/doctor/patients.js"       defer></script>
+  <script src="js/components/doctor/schedule.js"       defer></script>
+  <script src="js/components/doctor/treatments.js"     defer></script>
+  <script src="js/components/doctor/notifications.js"  defer></script>
+  <script src="js/components/doctor/reports.js"        defer></script>
+  <script src="js/components/doctor/shop.js"           defer></script>
+
+  <!-- Admin -->
+  <script src="js/components/admin/dashboard.js"       defer></script>
+  <script src="js/components/admin/users.js"           defer></script>
+  <script src="js/components/admin/therapies.js"       defer></script>
+  <script src="js/components/admin/appointments.js"    defer></script>
+  <script src="js/components/admin/reports.js"         defer></script>
+  <script src="js/components/admin/shop.js"            defer></script>
+  <script src="js/components/admin/announcements.js"   defer></script>
+
+  <!-- Shared -->
+  <script src="js/components/shared/profile.js"        defer></script>
+  <script src="js/components/shared/settings.js"       defer></script>
+</head>
+<body>
+
+<!-- ─── SPLASH ──────────────────────────────────────────── -->
+<div id="splash">
+  <div class="splash-inner">
+    <span class="splash-leaf">🌿</span>
+    <div class="splash-logo">Panchakarma</div>
+    <div class="splash-sub">Management Software</div>
+  </div>
+</div>
+
+<!-- ─── AUTH ────────────────────────────────────────────── -->
+<div id="login-page">
+  <div class="auth-wrapper">
+    <div class="auth-mode-switch">
+      <button class="auth-mode-btn active" id="tab-signin" onclick="switchAuthMode('signin')">Sign In</button>
+      <button class="auth-mode-btn" id="tab-signup" onclick="switchAuthMode('signup')">Create Account</button>
+    </div>
+
+    <!-- Sign In Card -->
+    <div class="auth-card active" id="card-signin">
+      <div class="auth-brand"><span class="auth-brand-icon">🌿</span><h2>Welcome Back</h2><p>Sign in to your account</p></div>
+      <div class="auth-role-tabs" id="signin-role-tabs">
+        <button class="auth-role-tab active" onclick="switchSigninRole('patient',this)">🧘 Patient</button>
+        <button class="auth-role-tab" onclick="switchSigninRole('doctor',this)">👨‍⚕️ Doctor</button>
+        <button class="auth-role-tab" onclick="switchSigninRole('admin',this)">⚙️ Admin</button>
+      </div>
+      <div class="auth-error" id="signin-error">Invalid email or password.</div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="signin-email" class="form-control" placeholder="your@email.com" onkeydown="if(event.key==='Enter')handleLogin()">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="signin-password" class="form-control" placeholder="Enter password" onkeydown="if(event.key==='Enter')handleLogin()">
+          <button class="pw-toggle" onclick="togglePw('signin-password',this)">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="signin-btn" onclick="handleLogin()">
+        <span>Sign In</span><span>→</span>
+      </button>
+      <div style="text-align:right;margin-top:10px">
+        <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--primary);font-size:0.82rem;cursor:pointer;font-weight:600">Forgot Password?</button>
+      </div>
+      <div class="auth-divider">Quick Demo Login</div>
+      <div class="demo-grid">
+        <button class="demo-btn" onclick="demoLogin('patient')">🧘<br><small>Patient</small></button>
+        <button class="demo-btn" onclick="demoLogin('doctor')">👨‍⚕️<br><small>Doctor</small></button>
+        <button class="demo-btn" onclick="demoLogin('admin')">⚙️<br><small>Admin</small></button>
+      </div>
+    </div>
+
+    <!-- Sign Up Card -->
+    <div class="auth-card" id="card-signup">
+      <div class="auth-brand"><span class="auth-brand-icon">🌿</span><h2>Join Panchakarma</h2><p>Create your account today</p></div>
+      <div class="auth-role-tabs" id="signup-role-tabs">
+        <button class="auth-role-tab active" onclick="switchSignupRole('patient',this)">🧘 Patient</button>
+        <button class="auth-role-tab" onclick="switchSignupRole('doctor',this)">👨‍⚕️ Doctor</button>
+      </div>
+      <div class="auth-error"   id="signup-error"></div>
+      <div class="auth-success" id="signup-success"></div>
+      <div class="form-grid">
+        <div class="form-group required"><label>First Name</label><input type="text" id="su-first" class="form-control" placeholder="First"></div>
+        <div class="form-group required"><label>Last Name</label><input type="text" id="su-last" class="form-control" placeholder="Last"></div>
+      </div>
+      <div class="form-group required"><label>Email</label><input type="email" id="su-email" class="form-control" placeholder="your@email.com"></div>
+      <div class="form-group required"><label>Phone</label><input type="tel" id="su-phone" class="form-control" placeholder="+91 XXXXX XXXXX"></div>
+      <div id="patient-fields">
+        <div class="form-grid">
+          <div class="form-group"><label>Date of Birth</label><input type="date" id="su-dob" class="form-control"></div>
+          <div class="form-group"><label>Gender</label>
+            <select id="su-gender" class="form-control"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Dosha Type</label>
+            <select id="su-dosha" class="form-control"><option>Vata</option><option>Pitta</option><option>Kapha</option><option>Vata-Pitta</option><option>Pitta-Kapha</option><option>Vata-Kapha</option></select>
+          </div>
+          <div class="form-group"><label>Blood Group</label>
+            <select id="su-blood" class="form-control"><option value="—">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="doctor-fields" style="display:none">
+        <div class="form-group required"><label>Specialization</label><input type="text" id="su-spec" class="form-control" placeholder="e.g. Panchakarma"></div>
+        <div class="form-grid">
+          <div class="form-group required"><label>Qualification</label><input type="text" id="su-qual" class="form-control" placeholder="BAMS, MD"></div>
+          <div class="form-group"><label>Experience</label><input type="text" id="su-exp" class="form-control" placeholder="5 years"></div>
+        </div>
+      </div>
+      <div class="form-group required">
+        <label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="su-password" class="form-control" placeholder="Min. 6 characters" oninput="checkPasswordStrength(this.value)">
+          <button class="pw-toggle" onclick="togglePw('su-password',this)">👁️</button>
+        </div>
+        <div class="pw-strength"><div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-fill"></div></div><div class="pw-strength-label" id="pw-label"></div></div>
+      </div>
+      <div class="terms-row">
+        <input type="checkbox" id="su-terms">
+        <label for="su-terms">I agree to the <button onclick="showTerms()" style="background:none;border:none;color:var(--primary);font-weight:600;cursor:pointer;font-size:inherit;padding:0">Terms of Service</button></label>
+      </div>
+      <button class="btn btn-primary btn-block" id="signup-btn" onclick="handleSignup()" style="margin-top:12px">
+        <span>Create Account</span><span>→</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PENDING VERIFICATION ─────────────────────────────── -->
+<div id="pending-page">
+  <div class="pending-card" id="pending-card-content">
+    <!-- Injected by showPendingScreen() in js/core/app.js -->
+  </div>
+</div>
+
+<!-- ─── MAIN APP ─────────────────────────────────────────── -->
+<div id="app">
+
+  <header class="app-header" id="app-header">
+    <div class="header-brand">
+      <div class="header-brand-icon">🌿</div>
+      <div><div class="header-brand-name">Panchakarma</div><div class="header-brand-sub">Healthcare Platform</div></div>
+    </div>
+    <nav class="header-nav" id="main-nav"><!-- built by js/core/router.js buildNav() --></nav>
+    <div class="header-right">
+      <span class="role-badge" id="role-badge"></span>
+      <div class="header-avatar" id="header-avatar" onclick="showPage('profile')" title="Profile">
+        <span id="header-avatar-text">?</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main" id="app-main">
+    <!-- Patient pages -->
+    <div id="page-patient-dashboard"     class="page"></div>
+    <div id="page-patient-schedule"      class="page"></div>
+    <div id="page-patient-progress"      class="page"></div>
+    <div id="page-patient-notifications" class="page"></div>
+    <div id="page-patient-feedback"      class="page"></div>
+    <div id="page-patient-shop"          class="page"></div>
+    <div id="page-patient-orders"        class="page"></div>
+
+    <!-- Doctor pages -->
+    <div id="page-doctor-dashboard"      class="page"></div>
+    <div id="page-doctor-patients"       class="page"></div>
+    <div id="page-doctor-schedule"       class="page"></div>
+    <div id="page-doctor-treatments"     class="page"></div>
+    <div id="page-doctor-notifications"  class="page"></div>
+    <div id="page-doctor-reports"        class="page"></div>
+    <div id="page-doctor-shop"           class="page"></div>
+
+    <!-- Admin pages -->
+    <div id="page-admin-dashboard"       class="page"></div>
+    <div id="page-admin-users"           class="page"></div>
+    <div id="page-admin-verify"          class="page"></div>
+    <div id="page-admin-therapies"       class="page"></div>
+    <div id="page-admin-appointments"    class="page"></div>
+    <div id="page-admin-reports"         class="page"></div>
+    <div id="page-admin-shop"            class="page"></div>
+
+    <!-- Shared pages -->
+    <div id="page-profile"              class="page"></div>
+    <div id="page-settings"             class="page"></div>
+    <div id="page-announcements"        class="page"></div>
+  </main>
+
+  <nav class="bottom-nav" id="bottom-nav"><!-- built by buildNav() --></nav>
+</div>
+
+<!-- ─── MODAL ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<!-- ─── TOASTS ───────────────────────────────────────────── -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ─── SESSION WARNING ──────────────────────────────────── -->
+<div id="session-warning-toast"></div>
+
+</body>
+</html>

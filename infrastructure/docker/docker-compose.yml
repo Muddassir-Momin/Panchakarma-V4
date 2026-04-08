@@ -1,0 +1,246 @@
+version: '3.9'
+
+# ═══════════════════════════════════════════════════════════
+# Panchakarma MS — Docker Compose (Development + Production)
+#
+# Development:  docker-compose up -d
+# Production:   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Seed DB:      docker-compose exec auth-service npm run seed
+# Logs:         docker-compose logs -f gateway
+# ═══════════════════════════════════════════════════════════
+
+services:
+
+  # ── MySQL Database ────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: pkms_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret
+      MYSQL_DATABASE:      panchakarma_db
+      MYSQL_USER:          panchakarma
+      MYSQL_PASSWORD:      panchakarma_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ../../database/seeds/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test:     ["CMD","mysqladmin","ping","-h","localhost","-upanchakarma","-ppanchakarma_pass"]
+      interval: 10s
+      timeout:  5s
+      retries:  10
+    restart: unless-stopped
+
+  # ── Redis (caching + rate limiting) ──────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: pkms_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:     ["CMD","redis-cli","ping"]
+      interval: 10s
+    restart: unless-stopped
+
+  # ── API Gateway ───────────────────────────────────────────
+  gateway:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: gateway
+    container_name: pkms_gateway
+    env_file: ../../.env
+    environment:
+      PORT:         4000
+      SERVICE_HOST: tasks.auth-service   # Docker Swarm DNS; use container name for compose
+      AUTH_PORT:         4001
+      PATIENT_PORT:      4002
+      DOCTOR_PORT:       4003
+      SESSION_PORT:      4004
+      SHOP_PORT:         4005
+      NOTIFICATION_PORT: 4006
+      REPORT_PORT:       4007
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+      - patient-service
+    restart: unless-stopped
+
+  # ── Auth Service ──────────────────────────────────────────
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/auth-service
+    container_name: pkms_auth
+    env_file: ../../.env
+    environment:
+      PORT: 4001
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Patient Service ───────────────────────────────────────
+  patient-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/patient-service
+    container_name: pkms_patient
+    env_file: ../../.env
+    environment:
+      PORT: 4002
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Doctor Service ────────────────────────────────────────
+  doctor-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/doctor-service
+    container_name: pkms_doctor
+    env_file: ../../.env
+    environment:
+      PORT: 4003
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Session Service ───────────────────────────────────────
+  session-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/session-service
+    container_name: pkms_session
+    env_file: ../../.env
+    environment:
+      PORT: 4004
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Shop Service ──────────────────────────────────────────
+  shop-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/shop-service
+    container_name: pkms_shop
+    env_file: ../../.env
+    environment:
+      PORT: 4005
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Notification Service ──────────────────────────────────
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/notification-service
+    container_name: pkms_notification
+    env_file: ../../.env
+    environment:
+      PORT: 4006
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Report Service ────────────────────────────────────────
+  report-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_DIR: services/report-service
+    container_name: pkms_report
+    env_file: ../../.env
+    environment:
+      PORT: 4007
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontend ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    container_name: pkms_frontend
+    env_file: ../../.env
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ── Nginx Reverse Proxy ───────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: pkms_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - gateway
+      - frontend
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # ── phpMyAdmin (dev only) ─────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: pkms_pma
+    environment:
+      PMA_HOST:     db
+      PMA_USER:     panchakarma
+      PMA_PASSWORD: panchakarma_pass
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    profiles:
+      - tools
+
+volumes:
+  db_data:
+  redis_data:
+
+networks:
+  default:
+    name: pkms_network

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS orders (
+  id                  CHAR(36)      NOT NULL DEFAULT (UUID()),
+  patient_id          CHAR(36)      NOT NULL,
+  mode                ENUM('online','pickup') NOT NULL,
+  status              ENUM('processing','ready','shipped','delivered','cancelled') NOT NULL DEFAULT 'processing',
+  total               DECIMAL(10,2) NOT NULL,
+  address             VARCHAR(400),
+  pickup_code         VARCHAR(12)   UNIQUE,
+  pickup_date         DATE,
+  pickup_time         VARCHAR(30),
+  estimated_delivery  DATE,
+  placed_at           DATE          NOT NULL,
+  created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_orders_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
+  KEY idx_orders_patient     (patient_id),
+  KEY idx_orders_status      (status),
+  KEY idx_orders_pickup_code (pickup_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
